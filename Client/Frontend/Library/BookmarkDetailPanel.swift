@@ -61,6 +61,9 @@ class BookmarkDetailPanel: SiteTableViewController {
     }
 
     var isFolderListExpanded = false
+    
+    // Position at which a new node will be inserted
+    var nodeInsertionIndex: UInt32?
 
     // Array of tuples containing all of the BookmarkFolders
     // along with their indentation depth.
@@ -72,7 +75,6 @@ class BookmarkDetailPanel: SiteTableViewController {
 
     convenience init(profile: Profile, bookmarkNode: BookmarkNode, parentBookmarkFolder: BookmarkFolder) {
         self.init(profile: profile, bookmarkNodeGUID: bookmarkNode.guid, bookmarkNodeType: bookmarkNode.type, parentBookmarkFolder: parentBookmarkFolder)
-
         self.bookmarkItemPosition = bookmarkNode.position
 
         if let bookmarkItem = bookmarkNode as? BookmarkItem {
@@ -87,8 +89,8 @@ class BookmarkDetailPanel: SiteTableViewController {
         }
     }
 
-    convenience init(profile: Profile, withNewBookmarkNodeType bookmarkNodeType: BookmarkNodeType, parentBookmarkFolder: BookmarkFolder) {
-        self.init(profile: profile, bookmarkNodeGUID: nil, bookmarkNodeType: bookmarkNodeType, parentBookmarkFolder: parentBookmarkFolder)
+    convenience init(profile: Profile, withNewBookmarkNodeType bookmarkNodeType: BookmarkNodeType, parentBookmarkFolder: BookmarkFolder, nodeInsertionIndex: UInt32? = nil) {
+        self.init(profile: profile, bookmarkNodeGUID: nil, bookmarkNodeType: bookmarkNodeType, parentBookmarkFolder: parentBookmarkFolder, nodeInsertionIndex: nodeInsertionIndex)
 
         if bookmarkNodeType == .bookmark {
             self.bookmarkItemOrFolderTitle = ""
@@ -102,10 +104,11 @@ class BookmarkDetailPanel: SiteTableViewController {
         }
     }
 
-    private init(profile: Profile, bookmarkNodeGUID: GUID?, bookmarkNodeType: BookmarkNodeType, parentBookmarkFolder: BookmarkFolder) {
+    private init(profile: Profile, bookmarkNodeGUID: GUID?, bookmarkNodeType: BookmarkNodeType, parentBookmarkFolder: BookmarkFolder, nodeInsertionIndex: UInt32? = nil) {
         self.bookmarkNodeGUID = bookmarkNodeGUID
         self.bookmarkNodeType = bookmarkNodeType
         self.parentBookmarkFolder = parentBookmarkFolder
+        self.nodeInsertionIndex = nodeInsertionIndex
 
         super.init(profile: profile)
 
@@ -129,10 +132,6 @@ class BookmarkDetailPanel: SiteTableViewController {
         navigationItem.rightBarButtonItem = UIBarButtonItem(barButtonSystemItem: .save) { _ in
             self.save().uponQueue(.main) { _ in
                 self.navigationController?.popViewController(animated: true)
-
-                if self.isNew, let bookmarksPanel = self.navigationController?.visibleViewController as? BookmarksPanel {
-                    bookmarksPanel.didAddBookmarkNode()
-                }
             }
         }
 
@@ -233,7 +232,7 @@ class BookmarkDetailPanel: SiteTableViewController {
                     return deferMaybe(BookmarkDetailPanelError())
                 }
 
-                return profile.places.createFolder(parentGUID: parentBookmarkFolder.guid, title: bookmarkItemOrFolderTitle).bind({ result in
+                return profile.places.createFolder(parentGUID: parentBookmarkFolder.guid, title: bookmarkItemOrFolderTitle, position: nodeInsertionIndex).bind({ result in
                     return result.isFailure ? deferMaybe(BookmarkDetailPanelError()) : succeed()
                 })
             }
